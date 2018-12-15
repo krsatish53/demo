@@ -2,6 +2,10 @@ package com.cart.demo.service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.validation.constraints.NotNull;
 
@@ -51,7 +55,7 @@ public class OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (ItemDto itemDto : itemDtos) {
             Item item = itemRepository.findOne(itemDto.getItemId());
-            if (item == null){
+            if (item == null) {
                 throw new IllegalArgumentException("Item not found");
             }
             if (item.getCurrentStock() < itemDto.getQuantity()) {
@@ -80,6 +84,18 @@ public class OrderService {
     }
 
     public List<Orders> getAllOrders() {
-        return ordersRepository.findAll();
+        List<Orders> orders = ordersRepository.findAll();
+        Map<Long, Item> itemMap = getItemIdMap(orders);
+        orders.forEach(order -> order.getOrderItems().forEach(orderItem -> {
+            orderItem.setName(itemMap.get(orderItem.getItemId()).getName());
+        }));
+        return orders;
+    }
+
+    private Map<Long, Item> getItemIdMap(List<Orders> orders) {
+        Set<Long> itemId = orders.stream().map(Orders::getOrderItems).flatMap(List::stream).map(OrderItems::getItemId)
+            .collect(Collectors.toSet());
+        List<Item> items = itemRepository.findAll(itemId);
+        return items.stream().collect(Collectors.toMap(Item::getId, Function.identity()));
     }
 }
